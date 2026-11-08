@@ -137,7 +137,9 @@ jobs:
 
           import android.app.Activity;
           import android.app.AlertDialog;
+          import android.content.Context;
           import android.content.Intent;
+          import android.net.ConnectivityManager;
           import android.net.Uri;
           import android.os.Bundle;
           import android.webkit.CookieManager;
@@ -187,6 +189,7 @@ jobs:
                       public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
                           if (!r.isForMainFrame()) return false;
                           Uri u = r.getUrl();
+                          if ("megaincome".equals(u.getScheme())) { retry(); return true; }
                           String sc = u.getScheme();
                           if (("http".equals(sc) || "https".equals(sc)) && HOST.equals(u.getHost())) return false;
                           openExternal(u);
@@ -216,7 +219,7 @@ jobs:
 
                   web.setDownloadListener((url, ua, cd, mime, len) -> openExternal(Uri.parse(url)));
 
-                  web.loadUrl(SITE);
+                  if (online()) web.loadUrl(SITE); else showOffline();
                   checkUpdate();
               }
 
@@ -235,12 +238,32 @@ jobs:
                   }
               }
 
+              boolean online() {
+                  try {
+                      ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                      android.net.Network n = cm.getActiveNetwork();
+                      if (n == null) return false;
+                      android.net.NetworkCapabilities nc = cm.getNetworkCapabilities(n);
+                      return nc != null && nc.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+                  } catch (Exception e) {
+                      return true;
+                  }
+              }
+
+              void retry() {
+                  if (online()) {
+                      web.loadUrl(SITE);
+                  } else {
+                      Toast.makeText(this, "ইন্টারনেট চালু করে আবার চেষ্টা করুন", Toast.LENGTH_SHORT).show();
+                  }
+              }
+
               void showOffline() {
                   String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
                           + "<body style='margin:0;background:#0b1220;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center'>"
                           + "<div style='padding:24px'><div style='font-size:46px'>&#128225;</div><h3>ইন্টারনেট সংযোগ নেই</h3>"
                           + "<p style='color:#b9c0d0'>সংযোগ চেক করে আবার চেষ্টা করুন</p>"
-                          + "<button onclick=\"location.href='" + SITE + "'\" style='background:#e8c872;border:0;border-radius:12px;padding:12px 26px;font-size:16px;font-weight:700'>আবার চেষ্টা করুন</button>"
+                          + "<a href='megaincome://retry' style='display:inline-block;text-decoration:none;color:#000;background:#e8c872;border-radius:12px;padding:12px 26px;font-size:16px;font-weight:700'>আবার চেষ্টা করুন</a>"
                           + "</div></body></html>";
                   web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
               }
@@ -358,4 +381,4 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Mega Income v${{ github.run_number }}
           files: Mega-Income.apk
-          make_latest: true
+          make_latest: truetrue
