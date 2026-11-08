@@ -131,6 +131,19 @@ jobs:
               </style>
           </resources>
           MIEOF
+          mkdir -p app/src/main/res/drawable
+          cat > app/src/main/res/drawable/ic_download.xml <<'MIEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#1A1204"
+                  android:pathData="M19,9h-4V3H9v6H5l7,7 7,-7zM5,18v2h14v-2H5z" />
+          </vector>
+          MIEOF
           mkdir -p app/src/main/java/com/megaincome/app
           cat > app/src/main/java/com/megaincome/app/MainActivity.java <<'MIEOF'
           package com.megaincome.app;
@@ -285,9 +298,10 @@ jobs:
                           final String url = j.optString("apkUrl", "");
                           final String msg = j.optString("message", "অ্যাপের নতুন ভার্সন এসেছে।");
                           final boolean force = j.optBoolean("force", false);
+                          final String vn = j.optString("versionName", "");
                           int cur = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
                           if (latest > cur && url.length() > 0) {
-                              runOnUiThread(() -> showUpdate(url, msg, force));
+                              runOnUiThread(() -> showUpdate(url, msg, force, cur, vn.length() > 0 ? vn : "v" + latest));
                           }
                       } catch (Exception e) {
                           // আপডেট চেক ব্যর্থ হলে চুপচাপ বাদ
@@ -295,18 +309,107 @@ jobs:
                   }).start();
               }
 
-              void showUpdate(String url, String msg, boolean force) {
+              android.widget.TextView label(String t, float sp, int color, boolean bold) {
+                  android.widget.TextView x = new android.widget.TextView(this);
+                  x.setText(t);
+                  x.setTextSize(sp);
+                  x.setTextColor(color);
+                  x.setGravity(android.view.Gravity.CENTER);
+                  if (bold) x.setTypeface(null, android.graphics.Typeface.BOLD);
+                  return x;
+              }
+
+              void showUpdate(final String url, String msg, final boolean force, int cur, String newVer) {
                   if (isFinishing()) return;
-                  AlertDialog.Builder d = new AlertDialog.Builder(this)
-                          .setTitle("নতুন আপডেট এসেছে")
-                          .setMessage(msg)
-                          .setCancelable(!force)
-                          .setPositiveButton("আপডেট করুন", (x, y) -> {
-                              openExternal(Uri.parse(url));
-                              if (force) finish();
-                          });
-                  if (!force) d.setNegativeButton("পরে", null);
-                  d.show();
+                  final float d = getResources().getDisplayMetrics().density;
+                  final android.app.Dialog dlg = new android.app.Dialog(this);
+                  dlg.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+                  dlg.setCancelable(!force);
+                  dlg.setCanceledOnTouchOutside(!force);
+
+                  android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+                  root.setOrientation(android.widget.LinearLayout.VERTICAL);
+                  root.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+                  root.setPadding((int) (24 * d), (int) (32 * d), (int) (24 * d), (int) (20 * d));
+                  android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+                  bg.setColor(0xFF101A2E);
+                  bg.setCornerRadius(26 * d);
+                  bg.setStroke((int) (1.5f * d), 0xFFE8C872);
+                  root.setBackground(bg);
+
+                  android.widget.ImageView logo = new android.widget.ImageView(this);
+                  logo.setImageResource(R.mipmap.ic_launcher);
+                  logo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+                  logo.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                      @Override
+                      public void getOutline(android.view.View v, android.graphics.Outline o) {
+                          o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), 22 * d);
+                      }
+                  });
+                  logo.setClipToOutline(true);
+                  android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams((int) (92 * d), (int) (92 * d));
+                  lp.bottomMargin = (int) (18 * d);
+                  root.addView(logo, lp);
+
+                  root.addView(label("নতুন আপডেট এসেছে", 22, 0xFFFFFFFF, true));
+
+                  android.widget.TextView chip = label("নতুন ভার্সন " + newVer, 13, 0xFF1A1204, true);
+                  android.graphics.drawable.GradientDrawable cbg = new android.graphics.drawable.GradientDrawable();
+                  cbg.setColor(0xFFE8C872);
+                  cbg.setCornerRadius(30 * d);
+                  chip.setBackground(cbg);
+                  chip.setPadding((int) (14 * d), (int) (5 * d), (int) (14 * d), (int) (5 * d));
+                  android.widget.LinearLayout.LayoutParams cp = new android.widget.LinearLayout.LayoutParams(
+                          android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                  cp.topMargin = (int) (12 * d);
+                  root.addView(chip, cp);
+
+                  android.widget.TextView body = label(msg, 16, 0xFFC9D1E3, false);
+                  body.setLineSpacing(0, 1.25f);
+                  android.widget.LinearLayout.LayoutParams bp = new android.widget.LinearLayout.LayoutParams(
+                          android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                  bp.topMargin = (int) (20 * d);
+                  bp.bottomMargin = (int) (26 * d);
+                  root.addView(body, bp);
+
+                  android.widget.LinearLayout btn = new android.widget.LinearLayout(this);
+                  btn.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                  btn.setGravity(android.view.Gravity.CENTER);
+                  btn.setPadding(0, (int) (14 * d), 0, (int) (14 * d));
+                  android.graphics.drawable.GradientDrawable bbg = new android.graphics.drawable.GradientDrawable();
+                  bbg.setColor(0xFFE8C872);
+                  bbg.setCornerRadius(14 * d);
+                  btn.setBackground(bbg);
+                  android.widget.ImageView ic = new android.widget.ImageView(this);
+                  ic.setImageResource(R.drawable.ic_download);
+                  android.widget.LinearLayout.LayoutParams ip = new android.widget.LinearLayout.LayoutParams((int) (20 * d), (int) (20 * d));
+                  ip.rightMargin = (int) (8 * d);
+                  btn.addView(ic, ip);
+                  btn.addView(label("আপডেট করুন", 16, 0xFF1A1204, true));
+                  btn.setOnClickListener(v -> {
+                      openExternal(Uri.parse(url));
+                      if (force) finish(); else dlg.dismiss();
+                  });
+                  root.addView(btn, new android.widget.LinearLayout.LayoutParams(
+                          android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+
+                  if (!force) {
+                      android.widget.TextView later = label("পরে", 14, 0xFF8B94A8, false);
+                      later.setPadding((int) (24 * d), (int) (14 * d), (int) (24 * d), (int) (6 * d));
+                      later.setOnClickListener(v -> dlg.dismiss());
+                      root.addView(later);
+                  }
+
+                  dlg.setContentView(root);
+                  android.view.Window w = dlg.getWindow();
+                  if (w != null) {
+                      w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+                      w.setDimAmount(0.75f);
+                  }
+                  dlg.show();
+                  if (w != null) {
+                      w.setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.9f), android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+                  }
               }
 
               @Override
@@ -381,4 +484,4 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Mega Income v${{ github.run_number }}
           files: Mega-Income.apk
-          make_latest: truetrue
+          make_latest: true
