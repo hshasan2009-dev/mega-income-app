@@ -125,7 +125,7 @@ jobs:
           <resources>
               <color name="bg">#0B1220</color>
               <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
-                  <item name="android:windowBackground">@color/bg</item>
+                  <item name="android:windowBackground">@drawable/splash_bg</item>
                   <item name="android:statusBarColor">@color/bg</item>
                   <item name="android:navigationBarColor">@color/bg</item>
               </style>
@@ -143,6 +143,32 @@ jobs:
                   android:fillColor="#1A1204"
                   android:pathData="M19,9h-4V3H9v6H5l7,7 7,-7zM5,18v2h14v-2H5z" />
           </vector>
+          MIEOF
+          cat > app/src/main/res/drawable/splash_bg.xml <<'MIEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:drawable="@color/bg" />
+              <item
+                  android:width="96dp"
+                  android:height="96dp"
+                  android:gravity="center">
+                  <bitmap
+                      android:gravity="fill"
+                      android:src="@mipmap/ic_launcher" />
+              </item>
+          </layer-list>
+          MIEOF
+          mkdir -p app/src/main/res/values-v31
+          cat > app/src/main/res/values-v31/app.xml <<'MIEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+                  <item name="android:windowBackground">@drawable/splash_bg</item>
+                  <item name="android:statusBarColor">@color/bg</item>
+                  <item name="android:navigationBarColor">@color/bg</item>
+                  <item name="android:windowSplashScreenBackground">@color/bg</item>
+              </style>
+          </resources>
           MIEOF
           mkdir -p app/src/main/java/com/megaincome/app
           cat > app/src/main/java/com/megaincome/app/MainActivity.java <<'MIEOF'
@@ -181,12 +207,19 @@ jobs:
               WebView web;
               ValueCallback<Uri[]> fileCb;
               long lastBack = 0;
+              android.widget.FrameLayout frame;
+              android.view.View splash;
 
               @Override
               protected void onCreate(Bundle saved) {
                   super.onCreate(saved);
                   web = new WebView(this);
-                  setContentView(web);
+                  web.setBackgroundColor(0xFF0B1220);
+                  frame = new android.widget.FrameLayout(this);
+                  frame.setBackgroundColor(0xFF0B1220);
+                  frame.addView(web, new android.widget.FrameLayout.LayoutParams(-1, -1));
+                  buildSplash();
+                  setContentView(frame);
 
                   WebSettings s = web.getSettings();
                   s.setJavaScriptEnabled(true);
@@ -212,6 +245,11 @@ jobs:
                       @Override
                       public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
                           if (r.isForMainFrame()) showOffline();
+                      }
+
+                      @Override
+                      public void onPageFinished(WebView v, String u) {
+                          if (u != null && u.startsWith("https://" + HOST)) hideSplash();
                       }
                   });
 
@@ -251,6 +289,41 @@ jobs:
                   }
               }
 
+              void buildSplash() {
+                  final float d = getResources().getDisplayMetrics().density;
+                  android.widget.LinearLayout sp = new android.widget.LinearLayout(this);
+                  sp.setOrientation(android.widget.LinearLayout.VERTICAL);
+                  sp.setGravity(android.view.Gravity.CENTER);
+                  sp.setBackgroundColor(0xFF0B1220);
+                  android.widget.ImageView lg = new android.widget.ImageView(this);
+                  lg.setImageResource(R.mipmap.ic_launcher);
+                  lg.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                      @Override
+                      public void getOutline(android.view.View v, android.graphics.Outline o) {
+                          o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), 22 * d);
+                      }
+                  });
+                  lg.setClipToOutline(true);
+                  sp.addView(lg, new android.widget.LinearLayout.LayoutParams((int) (96 * d), (int) (96 * d)));
+                  android.widget.TextView nm = label("Mega Income", 24, 0xFFE8C872, true);
+                  android.widget.LinearLayout.LayoutParams np = new android.widget.LinearLayout.LayoutParams(
+                          android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+                  np.topMargin = (int) (18 * d);
+                  sp.addView(nm, np);
+                  frame.addView(sp, new android.widget.FrameLayout.LayoutParams(-1, -1));
+                  splash = sp;
+                  new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> hideSplash(), 10000);
+              }
+
+              void hideSplash() {
+                  if (splash == null) return;
+                  final android.view.View sp = splash;
+                  splash = null;
+                  sp.animate().alpha(0f).setDuration(300).withEndAction(() -> {
+                      if (sp.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) sp.getParent()).removeView(sp);
+                  }).start();
+              }
+
               boolean online() {
                   try {
                       ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -272,6 +345,7 @@ jobs:
               }
 
               void showOffline() {
+                  hideSplash();
                   String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
                           + "<body style='margin:0;background:#0b1220;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center'>"
                           + "<div style='padding:24px'><div style='font-size:46px'>&#128225;</div><h3>ইন্টারনেট সংযোগ নেই</h3>"
