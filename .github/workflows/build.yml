@@ -270,7 +270,7 @@ jobs:
 
           public class MainActivity extends Activity {
 
-              static final String HOST = "mega-income-pro1.vercel.app";
+              static final String HOST = "mega-income-pro.vercel.app";
               static final String SITE = "https://" + HOST + "/";
               static final int FILE_REQ = 1001;
 
@@ -715,7 +715,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y imagemagick
-          curl -fsSL https://mega-income-pro1.vercel.app/icon-512.png -o icon.png
+          curl -fsSL https://mega-income-pro.vercel.app/icon-512.png -o icon.png
           for s in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
             set -- $s
             mkdir -p app/src/main/res/mipmap-$1
@@ -748,6 +748,6 @@ jobs:
         env:
           NOTIFY_SECRET: ${{ secrets.NOTIFY_SECRET }}
         run: |
-          curl -fsS -X POST https://mega-income-pro1.vercel.app/api/notify \
+          curl -fsS -X POST https://mega-income-pro.vercel.app/api/notify \
             -H 'Content-Type: application/json' \
             -d "{\"type\":\"update\",\"secret\":\"$NOTIFY_SECRET\",\"version\":\"1.0.${{ github.run_number }}\"}"
